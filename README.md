@@ -79,20 +79,4 @@ Usage:
 handleExport('svg' | 'png')
 ```
 
-## Key Features for Each Visualization
-
-### ParticipationAnalysis
-- Log-scale community size analysis
-- Threshold validation
-- Anomaly detection
-
-### ParticipationDistribution
-- Frequency distribution
-- Statistical summaries
-- Threshold categorization
-
-### ThresholdAnalysis
-- Empirical threshold validation
-- Quartile analysis
-- Distribution comparisons
 
