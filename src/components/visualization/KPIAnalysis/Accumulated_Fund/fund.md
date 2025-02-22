@@ -109,3 +109,121 @@ This analysis examines the distribution of treasury values across Decentralized 
 2. Implement additional analysis of near-zero treasury cases
 3. Investigate correlation with other DAO metrics
 4. Consider longitudinal study to track treasury evolution
+
+
+
+Diagram 3
+
+# Treasury Value Threshold Analysis: Statistical Methodology and Findings
+
+## Overview
+This analysis examines the distribution of treasury values across Decentralized Autonomous Organizations (DAOs) to evaluate and potentially refine existing categorization thresholds. The current framework uses fixed thresholds ($100M and $1B), while our empirical analysis suggests that quartile-based thresholds might better reflect the actual distribution of treasury values.
+
+## Methodology
+
+### 1. Data Processing
+
+#### Data Preparation
+- Raw treasury values are processed in USD
+- Log transformation is applied: `log₁₀(max(ε, value))` where ε = 10⁻⁶
+- Zero values and invalid entries are filtered out
+- Both raw values and log-transformed values are maintained for different aspects of the analysis
+
+### 2. Statistical Methods
+
+#### Quantile Calculation
+We implement a linear interpolation method for quantile calculation:
+```javascript
+Q(p) = x[j] + (x[j+1] - x[j]) * f
+where:
+- j = floor(p * (n-1))
+- f = p * (n-1) - j
+- p is the desired quantile (0.25 for Q₁, 0.5 for median, 0.75 for Q₃)
+- n is the sample size
+```
+
+#### Kernel Density Estimation (KDE)
+For smoothed distribution visualization:
+```javascript
+KDE(x) = (1/nh) Σᵢ K((x - xᵢ)/h)
+where:
+- K is the Gaussian kernel: K(u) = (1/√(2π)) * e^(-u²/2)
+- h is the bandwidth (set to 0.5 for log-scale data)
+- n is the sample size
+```
+
+#### Histogram Binning
+- Bin width: 0.5 (in log₁₀ scale)
+- Frequency calculation: (count per bin / total count) * 100%
+- Bins span the entire range of observed values
+
+### 3. Threshold Frameworks
+
+#### Current Framework (from paper)
+- Low: < $100M
+- Medium: $100M - $1B
+- High: > $1B
+
+#### Proposed Empirical Framework
+- Low: < Q₁
+- Medium: Q₁ - Q₃
+- High: > Q₃
+
+## Results
+
+### 1. Distribution Statistics
+- Sample size (N): 50 DAOs
+- Key statistical measures:
+  * First Quartile (Q₁): [Q₁ value]
+  * Median: [Median value]
+  * Third Quartile (Q₃): [Q₃ value]
+
+### 2. Category Distribution
+
+#### Current Framework
+- Low (<$100M): [percentage]%
+- Medium ($100M-$1B): [percentage]%
+- High (>$1B): [percentage]%
+
+#### Empirical Framework
+- Low (<Q₁): [percentage]%
+- Medium (Q₁-Q₃): [percentage]%
+- High (>Q₃): [percentage]%
+
+## Analysis of Findings
+
+### 1. Distribution Characteristics
+- The distribution shows significant right-skewness
+- Log transformation reveals a more interpretable pattern
+- Density estimation indicates [describe pattern]
+
+### 2. Threshold Comparison
+- Current thresholds ($100M and $1B) appear to [analysis of how well they segment the data]
+- Empirical thresholds provide [comparison of categorization effectiveness]
+
+### 3. Implications for Categorization
+- The empirical approach suggests [implications]
+- The current fixed thresholds [evaluation of current framework]
+
+## Conclusions
+
+1. **Statistical Validity**
+   - The empirical framework provides a data-driven categorization
+   - Quartile-based thresholds adapt to the actual distribution of treasury values
+
+3. **Future Considerations**
+   - Regular recalculation of empirical thresholds might be necessary
+   - Additional factors (e.g., token circulation) could be incorporated
+
+## Technical Notes
+
+1. **Visualization**
+   - Log₁₀ scale used for x-axis to handle wide value range
+   - Kernel density estimation provides smoothed distribution view
+   - Reference lines show both current and proposed thresholds
+
+2. **Implementation Details**
+   - Data processing handles edge cases (zero values, invalid entries)
+   - Statistical calculations use proper numerical methods
+   - Visualization includes interactive elements for detailed exploration
+
