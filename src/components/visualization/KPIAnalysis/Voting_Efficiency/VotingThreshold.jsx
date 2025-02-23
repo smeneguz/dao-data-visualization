@@ -176,7 +176,7 @@ const VotingThreshold = () => {
 
       <div style={{ textAlign: 'center', fontFamily: 'serif', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>
-          Figure 4: Threshold Analysis of Voting Efficiency
+          Figure 3: Threshold Analysis of Voting Efficiency
         </h2>
         <p style={{ fontSize: '12px', color: '#666' }}>
           Evaluation of current and empirical thresholds (N = {stats.n})

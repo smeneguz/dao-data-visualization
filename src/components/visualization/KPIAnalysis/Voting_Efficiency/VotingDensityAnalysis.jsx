@@ -132,7 +132,7 @@ const VotingDensityAnalysis = () => {
 
       <div style={{ textAlign: 'center', fontFamily: 'serif', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>
-          Figure 3: Distribution of Proposal Approval Rates
+          Figure 2: Distribution of Proposal Approval Rates
         </h2>
         <p style={{ fontSize: '12px', color: '#666' }}>
           Frequency distribution with kernel density estimation (N = {stats.n})

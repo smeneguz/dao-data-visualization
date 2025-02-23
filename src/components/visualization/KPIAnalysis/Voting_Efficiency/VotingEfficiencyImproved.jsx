@@ -137,7 +137,7 @@ const VotingEfficiencyImproved = () => {
 
       <div style={{ textAlign: 'center', fontFamily: 'serif', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>
-          Figure 2: Voting Efficiency Analysis (Improved)
+          Figure 1.1: Voting Efficiency Analysis (Improved)
         </h2>
         <p style={{ fontSize: '12px', color: '#666' }}>
           Distribution of approval rates and voting durations (N = {stats.n})
