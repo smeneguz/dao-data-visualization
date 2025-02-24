@@ -16,6 +16,7 @@ const AccumulatedFundsAnalysisComplete = () => {
 
       {/* Treasury Threshold Analysis */}
       <TreasuryThresholdAnalysis />
+      
     </div>
   );
 };

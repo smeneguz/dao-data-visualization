@@ -1,6 +1,7 @@
 import ParticipationComplete from './components/visualization/KPIAnalysis/ParticipationAnalysisComplete';
 import AccumulatedFundsAnalysisComplete from './components/visualization/KPIAnalysis/AccumulatedFundsAnalysisComplete';
 import VotingEfficiencyAnalysisComplete from './components/visualization/KPIAnalysis/VotingEfficiencyAnalysisComplete';
+import DecentralizationAnalysisComplete from './components/visualization/KPIAnalysis/DecentralizationAnalysisComplete';
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <ParticipationComplete />
       <AccumulatedFundsAnalysisComplete />
       <VotingEfficiencyAnalysisComplete />
+      <DecentralizationAnalysisComplete />
     </div>
   );
 }
