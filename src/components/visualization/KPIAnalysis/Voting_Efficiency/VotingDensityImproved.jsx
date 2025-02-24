@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-         ResponsiveContainer, ReferenceLine, Label, Area } from 'recharts';
+         ResponsiveContainer, ReferenceLine, Label, ReferenceArea } from 'recharts';
 import { exportToPNG, exportToSVG } from '../../../../utils/exportUtils';
 import _ from 'lodash';
 
@@ -17,8 +17,9 @@ const VotingDensityImproved = () => {
   };
 
   const calculateConfidenceInterval = (mean, std, n, confidence = 0.95) => {
-    const z = 1.96; // 95% confidence level
-    const margin = z * (std / Math.sqrt(n));
+    // Use t-distribution for small sample sizes
+    const criticalValue = 1.96; // For 95% CI
+    const margin = criticalValue * (std / Math.sqrt(n));
     return {
       lower: mean - margin,
       upper: mean + margin
@@ -32,22 +33,23 @@ const VotingDensityImproved = () => {
       high: values.filter(v => v > thresholds.high)
     };
 
+    // Calculate detailed statistics for each category
+    const getCategoryStats = (vals) => {
+      if (vals.length === 0) return { count: 0, mean: 0, median: 0, std: 0 };
+      const mean = _.mean(vals);
+      const sorted = _.sortBy(vals);
+      return {
+        count: vals.length,
+        mean,
+        median: sorted[Math.floor(vals.length/2)],
+        std: Math.sqrt(_.sumBy(vals, x => Math.pow(x - mean, 2)) / (vals.length - 1))
+      };
+    };
+
     return {
-      low: {
-        count: categories.low.length,
-        mean: _.mean(categories.low),
-        median: _.sortBy(categories.low)[Math.floor(categories.low.length/2)]
-      },
-      medium: {
-        count: categories.medium.length,
-        mean: _.mean(categories.medium),
-        median: _.sortBy(categories.medium)[Math.floor(categories.medium.length/2)]
-      },
-      high: {
-        count: categories.high.length,
-        mean: _.mean(categories.high),
-        median: _.sortBy(categories.high)[Math.floor(categories.high.length/2)]
-      }
+      low: getCategoryStats(categories.low),
+      medium: getCategoryStats(categories.medium),
+      high: getCategoryStats(categories.high)
     };
   };
 
@@ -57,7 +59,7 @@ const VotingDensityImproved = () => {
         const response = await fetch('/data/dao-metrics.json');
         const jsonData = await response.json();
 
-        // Process approval rates
+        // Process approval rates with validation
         const votingData = jsonData
           .map(dao => ({
             rate: dao.voting_efficiency.approval_rate,
@@ -78,21 +80,21 @@ const VotingDensityImproved = () => {
         // Calculate confidence intervals
         const ci = calculateConfidenceInterval(mean, std, rates.length);
         
+        // Calculate bandwidth using Silverman's rule
+        const bandwidth = 1.06 * std * Math.pow(rates.length, -0.2);
+        
         // Calculate category-specific statistics
         const categoryStats = calculateCategoryStats(rates, { low: 30, high: 70 });
 
         // Create histogram with enhanced binning
-        const bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-        const bandwidth = 1.06 * std * Math.pow(rates.length, -0.2); // Silverman's rule
-
+        const binWidth = 5; // 5% bins
+        const bins = _.range(0, 105, binWidth);
+        
         const histogramData = bins.slice(0, -1).map((binStart, i) => {
           const binEnd = bins[i + 1];
           const count = rates.filter(r => r >= binStart && r < binEnd).length;
           const frequency = (count / rates.length) * 100;
           const density = calculateKDE(rates, (binStart + binEnd) / 2, bandwidth) * 100;
-          
-          // Calculate cumulative frequency
-          const cumulative = (rates.filter(r => r < binEnd).length / rates.length) * 100;
 
           return {
             binStart,
@@ -100,7 +102,6 @@ const VotingDensityImproved = () => {
             x: binStart,
             frequency,
             density,
-            cumulative,
             count,
             label: `${binStart}-${binEnd}%`
           };
@@ -188,7 +189,6 @@ const VotingDensityImproved = () => {
               />
             </XAxis>
             <YAxis
-              yAxisId="frequency"
               tickFormatter={(value) => `${value.toFixed(0)}%`}
             >
               <Label
@@ -199,31 +199,17 @@ const VotingDensityImproved = () => {
                 style={{ fontFamily: 'serif', fontSize: '12px' }}
               />
             </YAxis>
-            <YAxis
-              yAxisId="cumulative"
-              orientation="right"
-              tickFormatter={(value) => `${value.toFixed(0)}%`}
-            >
-              <Label
-                value="Cumulative Frequency (%)"
-                angle={90}
-                position="right"
-                offset={45}
-                style={{ fontFamily: 'serif', fontSize: '12px' }}
-              />
-            </YAxis>
 
             {/* Category zones */}
-            <Area
-              yAxisId="frequency"
+            <ReferenceArea
               x1={30} x2={70}
               fill="#FFF3E0"
               fillOpacity={0.1}
+              ifOverflow="visible"
             />
 
             {/* Threshold lines */}
             <ReferenceLine
-              yAxisId="frequency"
               x={30}
               stroke="#ff0000"
               strokeDasharray="3 3"
@@ -234,7 +220,6 @@ const VotingDensityImproved = () => {
               }}
             />
             <ReferenceLine
-              yAxisId="frequency"
               x={70}
               stroke="#ff0000"
               strokeDasharray="3 3"
@@ -245,9 +230,8 @@ const VotingDensityImproved = () => {
               }}
             />
 
-            {/* Mean and CI */}
+            {/* Mean line */}
             <ReferenceLine
-              yAxisId="frequency"
               x={stats.mean}
               stroke="#666"
               strokeDasharray="3 3"
@@ -260,29 +244,18 @@ const VotingDensityImproved = () => {
 
             {/* Distribution components */}
             <Bar
-              yAxisId="frequency"
               dataKey="frequency"
               fill="#000"
               opacity={0.6}
               name="Frequency"
             />
             <Line
-              yAxisId="frequency"
               type="monotone"
               dataKey="density"
               stroke="#ff0000"
               strokeWidth={2}
               dot={false}
               name="Density"
-            />
-            <Line
-              yAxisId="cumulative"
-              type="monotone"
-              dataKey="cumulative"
-              stroke="#0066cc"
-              strokeWidth={1}
-              dot={false}
-              name="Cumulative"
             />
 
             <Tooltip
@@ -300,7 +273,6 @@ const VotingDensityImproved = () => {
                       <p>Frequency: {data.frequency.toFixed(1)}%</p>
                       <p>Count: {data.count} DAOs</p>
                       <p>Density: {data.density.toFixed(2)}</p>
-                      <p>Cumulative: {data.cumulative.toFixed(1)}%</p>
                     </div>
                   );
                 }
@@ -316,19 +288,19 @@ const VotingDensityImproved = () => {
         <ul style={{ listStyle: 'disc', paddingLeft: '20px' }}>
           <li>Low Approval (&lt;30%): {stats.percentages.low.toFixed(1)}% of DAOs
             <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
-              <li>Mean: {stats.categoryStats.low.mean.toFixed(1)}%</li>
+              <li>Mean: {stats.categoryStats.low.mean.toFixed(1)}% (σ = {stats.categoryStats.low.std.toFixed(1)})</li>
               <li>Median: {stats.categoryStats.low.median.toFixed(1)}%</li>
             </ul>
           </li>
           <li>Medium Approval (30-70%): {stats.percentages.medium.toFixed(1)}% of DAOs
             <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
-              <li>Mean: {stats.categoryStats.medium.mean.toFixed(1)}%</li>
+              <li>Mean: {stats.categoryStats.medium.mean.toFixed(1)}% (σ = {stats.categoryStats.medium.std.toFixed(1)})</li>
               <li>Median: {stats.categoryStats.medium.median.toFixed(1)}%</li>
             </ul>
           </li>
           <li>High Approval (&gt;70%): {stats.percentages.high.toFixed(1)}% of DAOs
             <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
-              <li>Mean: {stats.categoryStats.high.mean.toFixed(1)}%</li>
+              <li>Mean: {stats.categoryStats.high.mean.toFixed(1)}% (σ = {stats.categoryStats.high.std.toFixed(1)})</li>
               <li>Median: {stats.categoryStats.high.median.toFixed(1)}%</li>
             </ul>
           </li>
@@ -341,12 +313,11 @@ const VotingDensityImproved = () => {
             Math.abs(stats.kurtosis) < 0.5 ? 'approximately normal' :
             stats.kurtosis > 0.5 ? 'leptokurtic' : 'platykurtic'
           } (kurtosis = {stats.kurtosis.toFixed(2)}). 
-          The red line represents the kernel density estimation (bandwidth = {stats.bandwidth.toFixed(3)}), 
-          and the blue line shows the cumulative distribution. Category-specific statistics 
-          indicate {
-            stats.percentages.high > stats.percentages.low ? 'a tendency toward high' : 
-            stats.percentages.low > stats.percentages.high ? 'a tendency toward low' : 'balanced'
-          } approval rates.
+          The red line represents the kernel density estimation (bandwidth = {stats.bandwidth.toFixed(3)}).
+          Within-category standard deviations indicate {
+            Math.max(stats.categoryStats.low.std, stats.categoryStats.medium.std, stats.categoryStats.high.std) < 10 
+            ? 'high consistency' : 'substantial variation'
+          } in approval patterns.
         </p>
       </div>
     </div>

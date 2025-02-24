@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-         ResponsiveContainer, ReferenceLine, Label } from 'recharts';
+         ResponsiveContainer, ReferenceLine, Label, ReferenceArea } from 'recharts';
 import { exportToPNG, exportToSVG } from '../../../../utils/exportUtils';
 import _ from 'lodash';
 
-const VotingThreshold = () => {
+const VotingThresholdAnalysis = () => {
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
   const containerRef = useRef(null);
@@ -22,6 +22,18 @@ const VotingThreshold = () => {
     }
   };
 
+  // Paper-defined thresholds
+  const PAPER_THRESHOLDS = {
+    approval: {
+      low: 30,
+      high: 70
+    },
+    duration: {
+      min: 2,
+      max: 14
+    }
+  };
+
   // Statistical functions
   const calculateKDE = (values, point, bandwidth) => {
     return values.reduce((sum, x) => 
@@ -29,21 +41,62 @@ const VotingThreshold = () => {
       (bandwidth * Math.sqrt(2 * Math.PI)), 0) / values.length;
   };
 
-  const calculateStats = (values) => {
+  const calculateStatistics = (values) => {
     const sorted = [...values].sort((a, b) => a - b);
     const n = values.length;
     const mean = _.mean(values);
     const std = Math.sqrt(_.sumBy(values, x => Math.pow(x - mean, 2)) / (n - 1));
 
-    // Calculate quartiles and IQR
-    const q1 = sorted[Math.floor(n * 0.25)];
-    const q3 = sorted[Math.floor(n * 0.75)];
+    // Calculate quantiles
+    const quantiles = [0.1, 0.25, 0.5, 0.75, 0.9].map(q => {
+      const pos = (sorted.length - 1) * q;
+      const base = Math.floor(pos);
+      const rest = pos - base;
+      if (sorted[base + 1] !== undefined) {
+        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+      }
+      return sorted[base];
+    });
+
+    const [p10, q1, median, q3, p90] = quantiles;
     const iqr = q3 - q1;
 
-    // Calculate optimal bandwidth (Silverman's rule)
+    // Calculate optimal bandwidth using Silverman's rule
     const bandwidth = 1.06 * Math.min(std, iqr/1.34) * Math.pow(n, -0.2);
 
-    return { mean, std, q1, q3, iqr, bandwidth };
+    // Calculate skewness and kurtosis
+    const skewness = _.sum(values.map(x => Math.pow((x - mean) / std, 3))) / n;
+    const kurtosis = _.sum(values.map(x => Math.pow((x - mean) / std, 4))) / n - 3;
+
+    return { 
+      n, mean, std, p10, q1, median, q3, p90, 
+      iqr, bandwidth, skewness, kurtosis 
+    };
+  };
+
+  const calculateEffectivenessRate = (binData, votingData, binWidth) => {
+    return binData.map((bin, i) => {
+      // Use sliding window of 3 bins
+      const windowStart = Math.max(0, i - 1);
+      const windowEnd = Math.min(binData.length, i + 2);
+      const window = binData.slice(windowStart, windowEnd);
+      
+      const relevantData = votingData.filter(d => 
+        d.rate >= bin.binStart - binWidth && 
+        d.rate < bin.binEnd + binWidth
+      );
+
+      if (relevantData.length === 0) return 0;
+
+      const effectiveCount = relevantData.filter(d => 
+        d.duration >= PAPER_THRESHOLDS.duration.min && 
+        d.duration <= PAPER_THRESHOLDS.duration.max
+      ).length;
+
+      // Add Bayesian smoothing
+      const alpha = 1; // Prior parameter
+      return (effectiveCount + alpha) / (relevantData.length + 2 * alpha) * 100;
+    });
   };
 
   useEffect(() => {
@@ -60,29 +113,32 @@ const VotingThreshold = () => {
             proposals: dao.voting_efficiency.total_proposals,
             approved: dao.voting_efficiency.approved_proposals
           }))
-          .filter(d => !isNaN(d.rate) && d.rate >= 0 && d.rate <= 100 && d.duration > 0);
+          .filter(d => !isNaN(d.rate) && d.rate >= 0 && d.rate <= 100 && 
+                      !isNaN(d.duration) && d.duration > 0);
 
         const rates = votingData.map(d => d.rate);
         const durations = votingData.map(d => d.duration);
 
-        // Calculate statistics for both metrics
-        const rateStats = calculateStats(rates);
-        const durationStats = calculateStats(durations);
+        // Calculate statistics
+        const rateStats = calculateStatistics(rates);
+        const durationStats = calculateStatistics(durations);
 
         // Calculate empirical thresholds
         const empiricalThresholds = {
           approval: {
-            low: rateStats.q1,
-            high: rateStats.q3
+            low: rateStats.q1,    // Use Q1 as lower threshold
+            medium: rateStats.median,  // Median as middle point
+            high: rateStats.q3     // Use Q3 as upper threshold
           },
           duration: {
-            low: Math.max(2, durationStats.q1),
-            high: Math.min(14, durationStats.q3)
+            min: Math.max(2, durationStats.q1),  // Ensure minimum of 2 days
+            optimal: durationStats.median,
+            max: Math.min(14, durationStats.q3)  // Cap at 14 days
           }
         };
 
-        // Create density distribution
-        const binWidth = 5;
+        // Create histogram data
+        const binWidth = 5;  // 5% bins
         const bins = _.range(0, 105, binWidth);
         
         const histogramData = bins.slice(0, -1).map((binStart, i) => {
@@ -90,15 +146,8 @@ const VotingThreshold = () => {
           const count = rates.filter(r => r >= binStart && r < binEnd).length;
           const frequency = (count / rates.length) * 100;
           
-          // Calculate kernel density
+          // Calculate density
           const density = calculateKDE(rates, (binStart + binEnd) / 2, rateStats.bandwidth) * 100;
-
-          // Calculate effectiveness scores
-          const effectiveCount = votingData.filter(d => 
-            d.rate >= binStart && d.rate < binEnd && 
-            d.duration >= 3 && d.duration <= 14
-          ).length;
-          const effectiveRate = (effectiveCount / count) * 100;
 
           return {
             binStart,
@@ -106,28 +155,38 @@ const VotingThreshold = () => {
             x: binStart,
             frequency,
             density,
-            effectiveRate: count > 0 ? effectiveRate : 0,
             count
           };
         });
 
-        // Calculate category statistics
-        const categorizeVote = (rate, duration) => {
-          if (rate < 30 || duration < 2) return 'low';
-          if (rate > 70 && duration >= 3 && duration <= 14) return 'high';
-          if (duration >= 3 && duration <= 14) return 'medium';
+        // Calculate effectiveness rates with smoothing
+        const effectivenessRates = calculateEffectivenessRate(histogramData, votingData, binWidth);
+        histogramData.forEach((bin, i) => {
+          bin.effectiveRate = effectivenessRates[i];
+        });
+
+        // Calculate categories using both threshold sets
+        const categorizeProposal = (rate, duration, thresholds) => {
+          if (rate < thresholds.approval.low || duration < PAPER_THRESHOLDS.duration.min) 
+            return 'low';
+          if (rate > thresholds.approval.high && 
+              duration >= PAPER_THRESHOLDS.duration.min && 
+              duration <= PAPER_THRESHOLDS.duration.max) 
+            return 'high';
+          if (duration >= PAPER_THRESHOLDS.duration.min && 
+              duration <= PAPER_THRESHOLDS.duration.max) 
+            return 'medium';
           return 'low';
         };
 
         const categories = {
-          current: votingData.reduce((acc, d) => {
-            const cat = categorizeVote(d.rate, d.duration);
+          paper: votingData.reduce((acc, d) => {
+            const cat = categorizeProposal(d.rate, d.duration, PAPER_THRESHOLDS);
             acc[cat] = (acc[cat] || 0) + 1;
             return acc;
           }, {}),
           empirical: votingData.reduce((acc, d) => {
-            const cat = d.rate < empiricalThresholds.approval.low ? 'low' :
-                       d.rate > empiricalThresholds.approval.high ? 'high' : 'medium';
+            const cat = categorizeProposal(d.rate, d.duration, empiricalThresholds);
             acc[cat] = (acc[cat] || 0) + 1;
             return acc;
           }, {})
@@ -138,11 +197,8 @@ const VotingThreshold = () => {
           rateStats,
           durationStats,
           empiricalThresholds,
-          categories,
-          currentThresholds: {
-            approval: { low: 30, high: 70 },
-            duration: { low: 2, high: 14 }
-          }
+          paperThresholds: PAPER_THRESHOLDS,
+          categories
         });
 
         setData(histogramData);
@@ -176,14 +232,14 @@ const VotingThreshold = () => {
 
       <div style={{ textAlign: 'center', fontFamily: 'serif', marginBottom: '20px' }}>
         <h2 style={{ fontSize: '16px', marginBottom: '10px' }}>
-          Figure 3: Threshold Analysis of Voting Efficiency
+          Figure 4: Voting Efficiency Threshold Analysis
         </h2>
         <p style={{ fontSize: '12px', color: '#666' }}>
-          Evaluation of current and empirical thresholds (N = {stats.n})
+          Comparison of theoretical and empirical thresholds (N = {stats.n})
         </p>
         <p style={{ fontSize: '12px', fontStyle: 'italic' }}>
           IQR Approval: [{stats.rateStats.q1.toFixed(1)}%, {stats.rateStats.q3.toFixed(1)}%], 
-          IQR Duration: [{stats.durationStats.q1.toFixed(1)}, {stats.durationStats.q3.toFixed(1)} days]
+          Duration: [{stats.durationStats.q1.toFixed(1)}, {stats.durationStats.q3.toFixed(1)} days]
         </p>
       </div>
 
@@ -232,25 +288,25 @@ const VotingThreshold = () => {
               />
             </YAxis>
 
-            {/* Current thresholds */}
+            {/* Paper thresholds */}
             <ReferenceLine
               yAxisId="frequency"
-              x={30}
+              x={PAPER_THRESHOLDS.approval.low}
               stroke="#ff0000"
               strokeDasharray="3 3"
               label={{
-                value: "Current Low (30%)",
+                value: "Paper Low (30%)",
                 position: "top",
                 style: { fontFamily: 'serif', fontSize: '10px' }
               }}
             />
             <ReferenceLine
               yAxisId="frequency"
-              x={70}
+              x={PAPER_THRESHOLDS.approval.high}
               stroke="#ff0000"
               strokeDasharray="3 3"
               label={{
-                value: "Current High (70%)",
+                value: "Paper High (70%)",
                 position: "top",
                 style: { fontFamily: 'serif', fontSize: '10px' }
               }}
@@ -263,7 +319,7 @@ const VotingThreshold = () => {
               stroke="#0066cc"
               strokeDasharray="3 3"
               label={{
-                value: `Q₁ (${stats.empiricalThresholds.approval.low.toFixed(1)}%)`,
+                value: `Empirical Q₁ (${stats.empiricalThresholds.approval.low.toFixed(1)}%)`,
                 position: "top",
                 style: { fontFamily: 'serif', fontSize: '10px' }
               }}
@@ -274,12 +330,13 @@ const VotingThreshold = () => {
               stroke="#0066cc"
               strokeDasharray="3 3"
               label={{
-                value: `Q₃ (${stats.empiricalThresholds.approval.high.toFixed(1)}%)`,
+                value: `Empirical Q₃ (${stats.empiricalThresholds.approval.high.toFixed(1)}%)`,
                 position: "top",
                 style: { fontFamily: 'serif', fontSize: '10px' }
               }}
             />
 
+            {/* Distribution components */}
             <Bar
               yAxisId="frequency"
               dataKey="frequency"
@@ -319,9 +376,7 @@ const VotingThreshold = () => {
                       border: '1px solid #ccc',
                       fontFamily: 'serif'
                     }}>
-                      <p style={{ fontWeight: 'bold' }}>
-                        {`${data.binStart}-${data.binEnd}%`}
-                      </p>
+                      <p style={{ fontWeight: 'bold' }}>{`${data.binStart}-${data.binEnd}%`}</p>
                       <p>Frequency: {data.frequency.toFixed(1)}%</p>
                       <p>Count: {data.count} DAOs</p>
                       <p>Effectiveness: {data.effectiveRate.toFixed(1)}%</p>
@@ -337,35 +392,61 @@ const VotingThreshold = () => {
 
       <div style={{ marginTop: '20px', fontFamily: 'serif', fontSize: '12px' }}>
         <p style={{ marginBottom: '10px' }}><strong>Threshold Analysis:</strong></p>
-        <ul style={{ listStyle: 'disc', paddingLeft: '20px' }}>
-          <li>Current Framework (30%, 70%):
+        <p style={{ marginBottom: '5px' }}>Paper-defined Framework (30%, 70%):</p>
+        <ul style={{ listStyle: 'disc', paddingLeft: '20px', marginBottom: '10px' }}>
+          <li>Low Efficiency: {((stats.categories.paper.low/stats.n)*100).toFixed(1)}%
             <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
-              <li>Low Efficiency: {((stats.categories.current.low/stats.n)*100).toFixed(1)}%</li>
-              <li>Medium Efficiency: {((stats.categories.current.medium/stats.n)*100).toFixed(1)}%</li>
-              <li>High Efficiency: {((stats.categories.current.high/stats.n)*100).toFixed(1)}%</li>
+              <li>Approval &lt; 30% or duration &lt; 2 days</li>
             </ul>
           </li>
-          <li>Empirical Framework (Q₁, Q₃):
+          <li>Medium Efficiency: {((stats.categories.paper.medium/stats.n)*100).toFixed(1)}%
             <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
-              <li>Low: {((stats.categories.empirical.low/stats.n)*100).toFixed(1)}%</li>
-              <li>Medium: {((stats.categories.empirical.medium/stats.n)*100).toFixed(1)}%</li>
-              <li>High: {((stats.categories.empirical.high/stats.n)*100).toFixed(1)}%</li>
+              <li>30% ≤ Approval ≤ 70% and 2-14 days duration</li>
+            </ul>
+          </li>
+          <li>High Efficiency: {((stats.categories.paper.high/stats.n)*100).toFixed(1)}%
+            <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
+              <li>Approval &gt; 70% and 2-14 days duration</li>
             </ul>
           </li>
         </ul>
+        
+        <p style={{ marginBottom: '5px' }}>Empirical Framework (Q₁: {stats.empiricalThresholds.approval.low.toFixed(1)}%, Q₃: {stats.empiricalThresholds.approval.high.toFixed(1)}%):</p>
+        <ul style={{ listStyle: 'disc', paddingLeft: '20px', marginBottom: '10px' }}>
+          <li>Low: {((stats.categories.empirical.low/stats.n)*100).toFixed(1)}%
+            <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
+              <li>Below Q₁ or duration thresholds</li>
+            </ul>
+          </li>
+          <li>Medium: {((stats.categories.empirical.medium/stats.n)*100).toFixed(1)}%
+            <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
+              <li>Between Q₁ and Q₃ with optimal duration</li>
+            </ul>
+          </li>
+          <li>High: {((stats.categories.empirical.high/stats.n)*100).toFixed(1)}%
+            <ul style={{ marginLeft: '20px', marginTop: '5px' }}>
+              <li>Above Q₃ with optimal duration</li>
+            </ul>
+          </li>
+        </ul>
+
         <p style={{ marginTop: '10px', fontStyle: 'italic', fontSize: '11px' }}>
-          Note: Current thresholds (red) compared with empirical quartile-based thresholds (blue). 
-          The effectiveness rate (blue line) shows the proportion of proposals within optimal 
-          duration (3-14 days) for each approval rate bin. Analysis suggests {
-            Math.abs(stats.empiricalThresholds.approval.low - 30) < 10 &&
-            Math.abs(stats.empiricalThresholds.approval.high - 70) < 10 
-              ? 'good alignment between current and empirical thresholds'
-              : 'potential need for threshold adjustment'
-          }.
+          Note: The red lines show paper-defined thresholds (30% and 70%), while blue lines represent empirically derived thresholds 
+          based on the data distribution (Q₁ and Q₃). The black bars show frequency distribution, red line shows kernel density 
+          estimation, and blue line represents the smoothed effectiveness rate (proportion of proposals within optimal duration 
+          {stats.durationStats.q1.toFixed(1)}-{stats.durationStats.q3.toFixed(1)} days). 
+          Analysis {
+            Math.abs(stats.empiricalThresholds.approval.low - PAPER_THRESHOLDS.approval.low) < 10 &&
+            Math.abs(stats.empiricalThresholds.approval.high - PAPER_THRESHOLDS.approval.high) < 10 
+              ? 'supports the current threshold values'
+              : 'suggests potential refinement of thresholds'
+          } based on observed voting patterns 
+          (skewness = {stats.rateStats.skewness.toFixed(2)}, 
+          kurtosis = {stats.rateStats.kurtosis.toFixed(2)}).
         </p>
       </div>
     </div>
   );
 };
 
-export default VotingThreshold;
+export default VotingThresholdAnalysis;
