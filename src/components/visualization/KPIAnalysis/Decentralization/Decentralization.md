@@ -271,10 +271,225 @@ The current analysis provides a robust statistical implementation of the paper's
 
 However, the analysis also reveals opportunities to enhance the framework with more sophisticated metrics that better capture the multi-faceted nature of decentralization in DAOs. Future work should focus on collecting more detailed token distribution data and developing more nuanced metrics that can account for the diverse structures and purposes of different DAOs.
 
-## References
 
-1. Original paper on DAO Key Performance Indicators
-2. Statistical methods for correlation analysis (Pearson's r)
-3. Visualization techniques for multi-dimensional data
-4. Economic inequality measures (Gini coefficient, Lorenz curve)
-5. Governance participation metrics in distributed systems
+# Distribution Analysis of Economic Decentralization in DAOs
+
+## Overview
+
+The "Distribution Analysis of Economic Decentralization" visualization (Figure 2.2) presents a comprehensive statistical analysis of token holder concentration patterns across Decentralized Autonomous Organizations (DAOs). 
+## Statistical Methodology
+
+### Data Collection and Processing
+
+1. **Data Source**: Token holder concentration metrics were collected from multiple DAOs, focusing on the percentage of tokens held by the largest token holder.
+
+2. **Data Validation**: 
+   - Filtering for valid numeric values within the range [0-100%]
+   - Handling of outliers using robust statistical methods
+   - Missing data treatment through exclusion of incomplete records
+
+3. **Binning Strategy**:
+   - Strategic bin boundaries aligned with key thresholds defined in the KPI framework (10%, 33%, 66%)
+   - Consistent bin widths for proper distribution representation
+   - Special handling of boundary values to ensure accurate classification
+
+### Statistical Measures
+
+1. **Central Tendency**:
+   - **Mean (μ)**: Arithmetic average of largest holder percentages
+   - **Median**: Middle value when all largest holder percentages are sorted
+   - **Mode**: Most frequently occurring largest holder percentage range
+
+2. **Dispersion Measures**:
+   - **Standard Deviation (σ)**: Measure of variation or dispersion from the mean
+   - **Interquartile Range (IQR)**: Range between 1st quartile (Q1) and 3rd quartile (Q3)
+   - **Range**: Difference between maximum and minimum values
+
+3. **Distribution Shape Analysis**:
+   - **Skewness**: Measure of asymmetry of the probability distribution
+     - Positive values indicate right-skewed distribution (tail on right)
+     - Negative values indicate left-skewed distribution (tail on left)
+     - Values near zero indicate symmetric distribution
+   
+   - **Kurtosis**: Measure of "tailedness" of the probability distribution
+     - Positive values (leptokurtic) indicate heavy tails and peaked center
+     - Negative values (platykurtic) indicate light tails and flatter distribution
+     - Values near zero (mesokurtic) indicate normal distribution-like tails
+
+4. **Normality Assessment**:
+   - **Normality Index**: Composite measure calculated as 1/(1 + |skewness| + |kurtosis|/2)
+     - Values close to 1 indicate close approximation to normal distribution
+     - Values below 0.7 indicate significant deviation from normality
+
+5. **Density Estimation**:
+   - **Kernel Density Estimation (KDE)**: Non-parametric method to estimate probability density function
+     - Bandwidth calculation using Scott's rule: 1.06 × σ × n^(-1/5)
+     - Gaussian kernel for smoothing
+
+6. **Distribution Fitting**:
+   - Goodness-of-fit metrics for multiple distribution types (normal, log-normal, uniform)
+   - Selection of best-fitting distribution based on shape parameters
+
+## Visualization Components
+
+### Histogram
+
+1. **Bars**: Represent frequency distribution of largest token holder percentages
+   - Height: Relative frequency (percentage of DAOs in each bin)
+   - Width: Range of largest holder percentages in the bin
+   - Color: Coded according to decentralization category
+
+2. **Color Scheme**:
+   - **Dark Green** (0-10%): High decentralization
+   - **Light Green** (10-33%): Medium/Medium-High decentralization
+   - **Orange** (33-66%): Medium-Low decentralization
+   - **Red** (66-100%): Low decentralization
+
+### Reference Lines and Areas
+
+1. **Threshold Lines**:
+   - **10% Line**: Threshold between High and Medium decentralization
+   - **33% Line**: Threshold between Medium and Medium-Low decentralization
+   - **66% Line**: Threshold between Medium-Low and Low decentralization
+
+2. **Background Areas**:
+   - Colored regions corresponding to decentralization categories
+   - Provides visual context for the distribution across threshold boundaries
+
+### Statistical Curves
+
+1. **Kernel Density Estimation (KDE) Curve**:
+   - Red dashed line showing the estimated probability density function
+   - Indicates the underlying continuous distribution
+   - Smooths out the discretization effects of the histogram
+
+2. **Best-Fit Distribution Curve**:
+   - Solid black line representing the parametric distribution that best fits the data
+   - Helps identify the theoretical distribution model that best explains the observed pattern
+   - Used for statistical inference and probabilistic modeling
+
+## Key Findings and Interpretation
+
+### Distribution Characteristics
+
+The distribution of largest token holder percentages shows:
+
+1. **Central Tendency**:
+   - Mean (μ) of approximately 35%, indicating moderate centralization on average
+   - Median of 30%, suggesting that half of the DAOs have their largest holder controlling more than 30% of tokens
+
+2. **Distribution Shape**:
+   - Slight positive skewness (0.47), indicating a longer tail toward higher concentration values
+   - Negative kurtosis (-0.55), suggesting a flatter distribution than normal with fewer extreme values
+   - Approximately symmetric overall, with moderate deviation from normality
+
+3. **Concentration Patterns**:
+   - Bimodal tendency with peaks in both the 20-30% and 40-50% ranges
+   - Relatively few DAOs (<10%) with very high centralization (>66%)
+   - Similarly few DAOs with very high decentralization (<10%)
+
+### Category Distribution
+
+1. **Low Decentralization** (>66% largest holder):
+   - 8.5% of DAOs exhibit high centralization
+   - These organizations have potential governance risks due to concentration of power
+
+2. **Medium-Low Decentralization** (33-66% largest holder):
+   - 38.3% of DAOs fall in this category
+   - Represent partially decentralized structures with significant influence from major token holders
+
+3. **Medium/Medium-High Decentralization** (10-33% largest holder):
+   - 46.8% of DAOs show medium-level decentralization
+   - This is the most common category, representing balanced distribution
+
+4. **High Decentralization** (<10% largest holder):
+   - Only 6.4% of DAOs achieve high decentralization
+   - These represent the closest approximation to fully decentralized governance
+
+### Governance Implications
+
+1. **On-chain Automation**:
+   - 80.9% of DAOs implement on-chain automation
+   - Automation positively correlates with higher decentralization scores in the framework
+
+2. **Proposer Concentration**:
+   - Mean proposer concentration of 26.2% with significant variation (0-66.7%)
+   - Indicates that governance participation (proposal creation) is often more centralized than token distribution
+
+## Significance and Conclusions
+
+### Framework Validation
+
+1. The distribution analysis provides empirical support for the threshold values (10%, 33%, 66%) used in the decentralization KPI framework:
+   - Natural breaks in the distribution align reasonably well with these thresholds
+   - The 10% threshold for high decentralization appropriately captures a small elite group (~6.4%)
+   - The 33% threshold represents a meaningful midpoint in the distribution
+
+2. The relative rarity of highly decentralized DAOs (6.4%) suggests that:
+   - True decentralization is difficult to achieve in practice
+   - The current threshold of 10% may be appropriate as an aspirational target
+
+### Practical Implications
+
+1. **Benchmark Information**:
+   - Organizations can use this distribution to understand where they stand relative to the ecosystem
+   - The visualization serves as a reference point for decentralization goals and progress
+
+2. **Governance Design**:
+   - The moderate prevalence of medium-decentralized DAOs (46.8%) suggests a practical balance point
+   - Governance designers can use this information to set realistic token distribution targets
+
+3. **Risk Assessment**:
+   - Organizations with largest holders above the 66% threshold (8.5%) face higher governance risks
+   - The distribution helps identify concentration patterns that may require mitigation
+
+## Statistical Formulas Used
+
+1. **Mean**: 
+   μ = (1/n) × Σ xi
+
+2. **Standard Deviation**: 
+   σ = √[(1/n) × Σ(xi - μ)²]
+
+3. **Skewness** (Fisher's moment coefficient): 
+   S = [1/n × Σ(xi - μ)³] / σ³
+
+4. **Kurtosis** (excess kurtosis): 
+   K = [1/n × Σ(xi - μ)⁴] / σ⁴ - 3
+
+5. **Kernel Density Estimation**: 
+   f̂(x) = (1/nh) × Σ K((x - xi)/h)
+   
+   Where:
+   - K is the Gaussian kernel: K(u) = (1/√2π) × e^(-u²/2)
+   - h is the bandwidth calculated using Scott's rule: h = 1.06 × σ × n^(-1/5)
+
+6. **Normality Index**: 
+   NI = 1 / (1 + |S| + |K|/2)
+
+7. **Frequency Calculation**: 
+   Frequency (%) = (Count in bin / Total count) × 100%
+
+## Limitations and Considerations
+
+1. The analysis focuses solely on the largest token holder percentage, which is just one dimension of economic decentralization.
+
+2. The static nature of the analysis does not capture the evolving dynamics of token distribution over time.
+
+3. The relationship between formal token ownership and actual governance influence may be complex and not fully captured by these metrics.
+
+4. On-chain data may not fully represent off-chain governance dynamics and informal influence mechanisms.
+
+## Future Directions
+
+1. Incorporate more comprehensive token distribution metrics, such as:
+   - Gini coefficient for token distribution
+   - Percentage held by top-N holders (N=5, 10, etc.)
+   - Effective number of token holders (inverse of Herfindahl-Hirschman Index)
+
+2. Analyze the relationship between token distribution and governance outcomes to validate the impact of decentralization.
+
+3. Develop longitudinal analysis to track changes in decentralization patterns over time.
+
+4. Incorporate relative decentralization measures based on DAO size, purpose, and governance model.
+

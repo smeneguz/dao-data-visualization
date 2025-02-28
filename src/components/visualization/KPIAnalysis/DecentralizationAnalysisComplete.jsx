@@ -8,6 +8,7 @@ import DecentralizationAnalysisImproved3 from './Decentralization/Decentralizati
 import DecentralizationDistributionAnalysis from './Decentralization/DecentralizationDistributionAnalysis';
 import DecentralizeDistributionimproved from './Decentralization/DecentralizeDistributionImproved.jsx';
 import DecentralizeDistributionimproved2 from './Decentralization/DecentralizeDistributionImproved2.jsx';
+// import DecentralizationThresholdOptimization from './Decentralization/DecentralizationThresholdOptimization';
 
 const DecentralizationAnalysisComplete = () => {
   return (
@@ -26,6 +27,8 @@ const DecentralizationAnalysisComplete = () => {
       <DecentralizeDistributionimproved />
 
       <DecentralizeDistributionimproved2 />
+
+      {/* <DecentralizationThresholdOptimization /> */}
 
     </div>
   );
